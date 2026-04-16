@@ -1,6 +1,9 @@
 # Static SPA + nginx; proxies /api to backend (same host / subdomain in production)
 FROM node:22-alpine AS build
 
+ARG VITE_API_ORIGIN=""
+ENV VITE_API_ORIGIN=$VITE_API_ORIGIN
+
 WORKDIR /app
 
 COPY package.json package-lock.json ./
