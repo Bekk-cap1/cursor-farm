@@ -24,9 +24,9 @@ __pycache__/
 venv/
 # venv, созданный прямо в backend/ (Windows-путь без подкаталога)
 pyvenv.cfg
-Lib/
-Scripts/
-Include/
+backend/Lib/
+backend/Scripts/
+backend/Include/
 share/
 .pytest_cache/
 .mypy_cache/
