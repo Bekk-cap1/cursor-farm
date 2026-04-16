@@ -1,0 +1,57 @@
+# ── Секреты ──────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Node / Frontend ──────────────────────────────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+*.log
+
+# ── Python / Backend ─────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+# venv, созданный прямо в backend/ (Windows-путь без подкаталога)
+pyvenv.cfg
+Lib/
+Scripts/
+Include/
+share/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+*.db
+*.sqlite3
+
+# ── Docker ───────────────────────────────────────────────────────────────────
+postgres-data/
+redis-data/
+media/
+
+# ── IDE / Editor ─────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

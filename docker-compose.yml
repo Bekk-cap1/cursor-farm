@@ -1,0 +1,58 @@
+# Локальный / VPS стек: один домен (например https://qabila.dn.uz), API по пути /api.
+#
+# Порт хоста для nginx (внутри контейнера всегда 80). По умолчанию 8080, чтобы не
+# конфликтовать с уже занятым :80 на сервере (Coolify proxy, системный nginx и т.д.).
+# Нужен именно 80 на хосте — задайте HTTP_PORT=80 в .env или в переменных Coolify.
+#
+# JWT_SECRET и при необходимости OPENAI_API_KEY — см. .env.example
+#
+# Локальная «почта» без реального SMTP (как MailHog в Node): поднять Mailpit
+#   docker compose --profile dev-mail up -d
+# В .env для backend: SMTP_HOST=mailpit SMTP_PORT=1025 SMTP_USE_TLS=false SMTP_USE_SSL=false
+# (пустые SMTP_USER / SMTP_PASSWORD), EMAIL_FROM=noreply@local.test
+# Веб-интерфейс писем: http://127.0.0.1:8025
+
+services:
+  mailpit:
+    image: axllent/mailpit:v1.21
+    profiles:
+      - dev-mail
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: sqlite:////data/farm.db
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      # Если фронт и API на разных поддоменах, перечислите фронт здесь:
+      CORS_ORIGINS_EXTRA: ${CORS_ORIGINS_EXTRA:-}
+      SMS_DEBUG_RETURN_CODE: ${SMS_DEBUG_RETURN_CODE:-true}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
+    volumes:
+      - farm-sqlite:/data
+    expose:
+      - "8000"
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    depends_on:
+      - backend
+
+volumes:
+  farm-sqlite:

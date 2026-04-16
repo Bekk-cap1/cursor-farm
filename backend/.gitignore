@@ -1,0 +1,22 @@
+# Виртуальное окружение и кэши
+.venv/
+venv/
+# venv, созданный прямо в каталоге backend (Windows)
+pyvenv.cfg
+Lib/
+Scripts/
+Include/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Локальные данные и секреты
+*.db
+.env
+.env.*
+!.env.example
+
+# Прочее
+htmlcov/
