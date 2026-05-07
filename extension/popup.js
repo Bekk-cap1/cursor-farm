@@ -100,7 +100,7 @@ function checkAuth(attempt = 0) {
   });
 }
 
-// Read farm_token directly from the active tab's localStorage via scripting API
+// Read farm_token from the active tab — tries scripting API first, falls back to tab message
 function tryReadTokenFromTab(onNotFound) {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs?.[0];
@@ -109,22 +109,40 @@ function tryReadTokenFromTab(onNotFound) {
     const isFarmTab = tab.url.includes('cursor-farm') || tab.url.includes('localhost');
     if (!isFarmTab) { onNotFound?.(); return; }
 
-    chrome.scripting.executeScript(
-      { target: { tabId: tab.id }, func: () => localStorage.getItem('farm_token') },
-      (results) => {
-        if (chrome.runtime.lastError) { onNotFound?.(); return; }
-        const token = results?.[0]?.result;
-        if (token) {
-          const origin = new URL(tab.url).origin;
-          // Push to background so it fetches farm data
-          chrome.runtime.sendMessage({ type: 'SYNC_TOKEN', token, apiOrigin: origin });
-          // Also optimistically show main UI with just the token
-          onLoggedIn({ token, email: null });
-        } else {
-          onNotFound?.();
-        }
+    function handleToken(token) {
+      if (token) {
+        const origin = new URL(tab.url).origin;
+        chrome.runtime.sendMessage({ type: 'SYNC_TOKEN', token, apiOrigin: origin });
+        onLoggedIn({ token, email: null });
+      } else {
+        onNotFound?.();
       }
-    );
+    }
+
+    // Method 1: chrome.scripting (requires scripting permission + full reload)
+    if (chrome.scripting?.executeScript) {
+      chrome.scripting.executeScript(
+        { target: { tabId: tab.id }, func: () => localStorage.getItem('farm_token') },
+        (results) => {
+          if (chrome.runtime.lastError) {
+            tryViaContentScript(tab.id, handleToken, onNotFound);
+            return;
+          }
+          handleToken(results?.[0]?.result);
+        }
+      );
+      return;
+    }
+
+    // Method 2: ask the content script already running on the page
+    tryViaContentScript(tab.id, handleToken, onNotFound);
+  });
+}
+
+function tryViaContentScript(tabId, onToken, onNotFound) {
+  chrome.tabs.sendMessage(tabId, { type: 'GET_TOKEN' }, (resp) => {
+    if (chrome.runtime.lastError || !resp) { onNotFound?.(); return; }
+    onToken(resp.token);
   });
 }
 

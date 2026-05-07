@@ -15,6 +15,13 @@
     watchTokenInStorage();
   }
 
+  // ── Answer popup's direct token request (GET_TOKEN message) ─────────────
+  chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
+    if (msg.type === 'GET_TOKEN') {
+      sendResponse({ token: localStorage.getItem('farm_token') });
+    }
+  });
+
   // ── Respond to postMessage pings (install-prompt detection) ───────────────
   window.addEventListener('message', function (event) {
     if (event.source !== window) return;
