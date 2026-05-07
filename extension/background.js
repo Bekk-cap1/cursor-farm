@@ -167,6 +167,36 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 
+  // Popup asks for analytics specifically (on-demand for export)
+  if (msg.type === 'GET_ANALYTICS') {
+    chrome.storage.local.get(USER_KEY).then(async (s) => {
+      const user = s[USER_KEY];
+      if (!user?.token) { sendResponse(null); return; }
+
+      // Use cached analytics if under 10 min old
+      if (user.analytics && user.fetchedAt && (Date.now() - user.fetchedAt) < 10 * 60 * 1000) {
+        sendResponse(user.analytics);
+        return;
+      }
+
+      const base    = user.apiOrigin || 'https://cursor-farm-1.onrender.com';
+      const headers = { Authorization: `Bearer ${user.token}`, 'Content-Type': 'application/json' };
+      try {
+        const res = await fetch(`${base}/api/analyze`, { method: 'POST', headers });
+        if (res.ok) {
+          const analytics = await res.json();
+          await chrome.storage.local.set({ [USER_KEY]: { ...user, analytics } });
+          sendResponse(analytics);
+        } else {
+          sendResponse(null);
+        }
+      } catch {
+        sendResponse(null);
+      }
+    });
+    return true;
+  }
+
   // Popup asks to re-fetch farm data (manual refresh)
   if (msg.type === 'REFRESH_USER_DATA') {
     chrome.storage.local.get(USER_KEY).then(async (s) => {

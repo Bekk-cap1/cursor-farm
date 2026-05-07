@@ -185,6 +185,7 @@ function initTabs() {
       const tab = btn.dataset.tab;
       qsa('.tab-btn').forEach((b) => b.classList.toggle('active', b === btn));
       qsa('.panel').forEach((p) => p.classList.toggle('active', p.id === `panel-${tab}`));
+      if (tab === 'export') fetchAnalyticsForExport(false);
     });
   });
 }
@@ -405,9 +406,65 @@ function renderUserInfo(data) {
 }
 
 // ── Export ────────────────────────────────────────────────────────────────────
+let analyticsCache = null;
+
 function initExport() {
   el('btn-export-excel').addEventListener('click', handleExcelExport);
   el('btn-export-pdf').addEventListener('click', handlePdfExport);
+  el('btn-reload-analytics').addEventListener('click', () => fetchAnalyticsForExport(true));
+}
+
+function setAnalyticsStatus(state) {
+  const s = el('ai-analytics-status');
+  if (!s) return;
+  if (state === 'loading') {
+    s.style.color = '#9ca3af';
+    s.textContent = '⏳ Loading from server…';
+  } else if (state === 'ok') {
+    s.style.color = '#16a34a';
+    s.textContent = '✓ AI analytics ready — will be included in export';
+  } else if (state === 'noauth') {
+    s.style.color = '#d97706';
+    s.textContent = '⚠ Not logged in — log in on the site first';
+  } else {
+    s.style.color = '#dc2626';
+    s.textContent = '✗ Could not load — check login or tap ↻ Load';
+  }
+}
+
+function fetchAnalyticsForExport(force) {
+  // Use in-memory cache unless forced
+  if (!force && analyticsCache) {
+    setAnalyticsStatus('ok');
+    return;
+  }
+  // Use userData.analytics if already populated
+  if (!force && userData?.analytics) {
+    analyticsCache = userData.analytics;
+    setAnalyticsStatus('ok');
+    return;
+  }
+
+  setAnalyticsStatus('loading');
+  el('btn-reload-analytics').disabled = true;
+
+  chrome.runtime.sendMessage({ type: 'GET_ANALYTICS' }, (analytics) => {
+    el('btn-reload-analytics').disabled = false;
+    if (chrome.runtime.lastError) {
+      setAnalyticsStatus('error');
+      return;
+    }
+    if (!analytics) {
+      // Check if we even have a token
+      chrome.runtime.sendMessage({ type: 'GET_USER_DATA' }, (u) => {
+        setAnalyticsStatus(u?.token ? 'error' : 'noauth');
+      });
+      return;
+    }
+    analyticsCache = analytics;
+    if (userData) userData.analytics = analytics;
+    setAnalyticsStatus('ok');
+  });
 }
 
 function getExportPayload() {
@@ -415,7 +472,7 @@ function getExportPayload() {
   const wantPrices   = el('export-include-prices').checked;
   const hasCalc      = wantCalc && calcResults != null;
   const hasPrices    = wantPrices && marketPrices != null;
-  const analytics    = userData?.analytics ?? null;
+  const analytics    = analyticsCache ?? userData?.analytics ?? null;
 
   return {
     hasCalc, hasPrices,
@@ -439,7 +496,7 @@ function handleExcelExport() {
     showExportError('Run the calculator and/or load market prices first.');
     return;
   }
-  exportAsExcel(d);
+  runExportWithAnalytics(d, exportAsExcel, el('btn-export-excel'));
 }
 
 function handlePdfExport() {
@@ -448,7 +505,29 @@ function handlePdfExport() {
     showExportError('Run the calculator and/or load market prices first.');
     return;
   }
-  exportAsPDF(d);
+  runExportWithAnalytics(d, exportAsPDF, el('btn-export-pdf'));
+}
+
+function runExportWithAnalytics(d, exportFn, btn) {
+  if (d.analytics) {
+    exportFn(d);
+    return;
+  }
+
+  // Analytics not ready yet — fetch now then export
+  const origText = btn.textContent;
+  btn.textContent = '⏳ AI…';
+  btn.disabled = true;
+
+  chrome.runtime.sendMessage({ type: 'GET_ANALYTICS' }, (analytics) => {
+    btn.textContent = origText;
+    btn.disabled = false;
+    if (analytics) {
+      analyticsCache = analytics;
+      setAnalyticsStatus('ok');
+    }
+    exportFn({ ...d, analytics: analytics ?? null });
+  });
 }
 
 // ── Excel export (HTML→XLS trick, no library needed) ─────────────────────────
