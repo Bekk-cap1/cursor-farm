@@ -19,6 +19,27 @@ function buildReport(data) {
       </div>`
   }
 
+  if (data.analytics) {
+    const a = data.analytics;
+    sections += `
+      <h2>AI Analytics</h2>
+      ${a.narrative ? `<p style="color:#57534e;font-size:13px;margin-bottom:10px;line-height:1.5">${a.narrative}</p>` : ''}
+      <table>
+        <tr><th>Metric</th><th>Value</th></tr>
+        <tr><td>Scans</td><td>${a.scans}</td></tr>
+        <tr><td>Data quality</td><td>${a.data_quality.toFixed(2)}</td></tr>
+        <tr><td>Crop condition</td><td>${a.crop_condition.toFixed(2)}</td></tr>
+        <tr><td>Animal health</td><td>${a.animal_health.toFixed(2)}</td></tr>
+        <tr><td>Water supply</td><td>${a.water_supply.toFixed(2)}</td></tr>
+      </table>
+      ${a.insight_critical ? `<p class="insight critical"><strong>⚠ Critical:</strong> ${a.insight_critical}</p>` : ''}
+      ${a.insight_warning  ? `<p class="insight warning"><strong>⚠ Warning:</strong> ${a.insight_warning}</p>` : ''}
+      ${a.insight_info     ? `<p class="insight info"><strong>ℹ Info:</strong> ${a.insight_info}</p>` : ''}
+      ${a.recommendations?.length ? `
+        <p style="font-weight:600;margin-top:10px;margin-bottom:4px">Recommendations</p>
+        <ul>${a.recommendations.map(r => `<li>[${r.priority.toUpperCase()}] ${r.id}</li>`).join('')}</ul>` : ''}`;
+  }
+
   if (data.hasCalc && data.calculator) {
     const r = data.calculator;
     const isProfit = r.profit >= 0;

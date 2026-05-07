@@ -43,6 +43,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Show login gate while we check auth, then reveal main UI
   showLoginGate();
   checkAuth();
+
+  // React to logout even while popup is open
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !('farm_user' in changes)) return;
+    const newVal = changes.farm_user.newValue;
+    if (!newVal) {
+      // Token was cleared → go back to login gate
+      userData = null;
+      if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+      showLoginGate();
+    } else if (!userData && (newVal.token || newVal.email)) {
+      // Logged in from another tab while popup was open on login gate
+      onLoggedIn(newVal);
+    }
+  });
 });
 
 // ── Auth gate ─────────────────────────────────────────────────────────────────
@@ -396,15 +411,17 @@ function initExport() {
 }
 
 function getExportPayload() {
-  const wantCalc   = el('export-include-calc').checked;
-  const wantPrices = el('export-include-prices').checked;
-  const hasCalc    = wantCalc && calcResults != null;
-  const hasPrices  = wantPrices && marketPrices != null;
+  const wantCalc     = el('export-include-calc').checked;
+  const wantPrices   = el('export-include-prices').checked;
+  const hasCalc      = wantCalc && calcResults != null;
+  const hasPrices    = wantPrices && marketPrices != null;
+  const analytics    = userData?.analytics ?? null;
 
   return {
     hasCalc, hasPrices,
     calculator: calcResults,
     prices: marketPrices,
+    analytics,
     ready: hasCalc || hasPrices,
   };
 }
@@ -469,6 +486,30 @@ function exportAsExcel(d) {
       </table>`;
   }
 
+  if (d.analytics) {
+    const a = d.analytics;
+    body += `
+      <h2>AI Analytics — ${date}</h2>
+      <table>
+        <tr><th>Metric</th><th>Value</th></tr>
+        <tr><td>Scans</td><td>${a.scans}</td></tr>
+        <tr><td>Data quality</td><td>${a.data_quality.toFixed(2)}</td></tr>
+        <tr><td>Crop condition</td><td>${a.crop_condition.toFixed(2)}</td></tr>
+        <tr><td>Animal health</td><td>${a.animal_health.toFixed(2)}</td></tr>
+        <tr><td>Water supply</td><td>${a.water_supply.toFixed(2)}</td></tr>
+      </table>
+      ${a.insight_critical ? `<p style="color:#dc2626"><strong>Critical:</strong> ${a.insight_critical}</p>` : ''}
+      ${a.insight_warning  ? `<p style="color:#d97706"><strong>Warning:</strong> ${a.insight_warning}</p>` : ''}
+      ${a.insight_info     ? `<p style="color:#2563eb"><strong>Info:</strong> ${a.insight_info}</p>` : ''}
+      ${a.narrative ? `<p style="color:#57534e">${a.narrative}</p>` : ''}
+      ${a.recommendations?.length ? `
+        <h3>Recommendations</h3>
+        <table>
+          <tr><th>Item</th><th>Priority</th></tr>
+          ${a.recommendations.map(r => `<tr><td>${r.id}</td><td>${r.priority}</td></tr>`).join('')}
+        </table>` : ''}`;
+  }
+
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
     xmlns:x="urn:schemas-microsoft-com:office:excel"
     xmlns="http://www.w3.org/TR/REC-html40">
@@ -497,6 +538,7 @@ function exportAsPDF(d) {
     hasPrices:  d.hasPrices,
     calculator: d.calculator,
     prices:     d.prices,
+    analytics:  d.analytics,
     generated:  Date.now(),
     // Attach real farm context if available
     user:       userData ? {

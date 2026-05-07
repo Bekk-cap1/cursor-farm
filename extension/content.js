@@ -80,6 +80,12 @@
       }
     };
 
+    const _clear = localStorage.clear.bind(localStorage);
+    localStorage.clear = function () {
+      _clear();
+      chrome.runtime.sendMessage({ type: 'CLEAR_TOKEN' });
+    };
+
     // Cross-tab: storage event fires when another tab changes localStorage
     window.addEventListener('storage', function (e) {
       if (e.key !== 'farm_token') return;

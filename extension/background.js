@@ -72,7 +72,13 @@ async function fetchFarmData(token, apiOrigin) {
       if (tRes.ok) tasks = await tRes.json();
     }
 
-    return { me, farms, zones, herds, tasks, fetchedAt: Date.now() };
+    let analytics = null;
+    try {
+      const aRes = await fetch(`${base}/api/analyze`, { method: 'POST', headers });
+      if (aRes.ok) analytics = await aRes.json();
+    } catch { /* analytics optional */ }
+
+    return { me, farms, zones, herds, tasks, analytics, fetchedAt: Date.now() };
   } catch {
     return null;
   }
