@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AiAnalyticsSection } from '../components/analytics/AiAnalyticsSection'
 import { DashboardVegetationStrip } from '../components/DashboardVegetationStrip'
+import { ExportPanel } from '../components/ExportPanel'
 import { LoadingBlock } from '../components/LoadingBlock'
 import { Toast } from '../components/Toast'
 import { useLang } from '../context/LangContext'
@@ -352,6 +353,14 @@ export default function AiAnalyticsPage() {
             farmId={farms[0]?.id ?? null}
             farmName={farms[0]?.name ?? null}
             zonesSig={dashboardZonesSig}
+          />
+
+          <ExportPanel
+            lang={lang}
+            summary={summary}
+            analytics={analytics}
+            farms={farms}
+            iotCtx={iotCtx}
           />
         </div>
       ) : (

@@ -253,6 +253,13 @@ export const STRINGS: Record<
     extInstallStep4: 'Выберите папку extension/ из корня проекта cursor-farm.',
     extInstallNote: 'После установки значок 🌱 появится в панели расширений. Работает на всех сайтах.',
     extInstallGotIt: 'Понятно',
+    exportTitle: 'Экспорт отчёта',
+    exportLead: 'Загрузите данные фермы в PDF или Excel с подсказками AI',
+    exportAiHints: 'Подсказки AI для экспорта',
+    exportWillInclude: 'В отчёт войдут',
+    exportBtnPdf: 'Скачать PDF',
+    exportBtnExcel: 'Скачать Excel',
+    exportNoData: 'Нет данных для экспорта. Сначала добавьте ферму.',
   },
   en: {
     brand: 'Farm AI',
@@ -503,6 +510,13 @@ export const STRINGS: Record<
     extInstallStep4: 'Select the extension/ folder from the cursor-farm project root.',
     extInstallNote: 'Once installed, the 🌱 icon will appear in your extensions bar. Works on every website.',
     extInstallGotIt: 'Got it',
+    exportTitle: 'Export Report',
+    exportLead: 'Download farm data as PDF or Excel with AI insights',
+    exportAiHints: 'AI insights for export',
+    exportWillInclude: 'Report will include',
+    exportBtnPdf: 'Download PDF',
+    exportBtnExcel: 'Download Excel',
+    exportNoData: 'No data to export. Add a farm first.',
   },
 }
 
