@@ -74,7 +74,7 @@ async function fetchFarmData(token, apiOrigin) {
 
     let analytics = null;
     try {
-      const aRes = await fetch(`${base}/api/analyze`, { method: 'POST', headers });
+      const aRes = await fetch(`${base}/api/dashboard/analyze?lang=en`, { method: 'POST', headers });
       if (aRes.ok) analytics = await aRes.json();
     } catch { /* analytics optional */ }
 
@@ -182,7 +182,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const base    = user.apiOrigin || 'https://cursor-farm-1.onrender.com';
       const headers = { Authorization: `Bearer ${user.token}`, 'Content-Type': 'application/json' };
       try {
-        const res = await fetch(`${base}/api/analyze`, { method: 'POST', headers });
+        const res = await fetch(`${base}/api/dashboard/analyze?lang=en`, { method: 'POST', headers });
         if (res.ok) {
           const analytics = await res.json();
           await chrome.storage.local.set({ [USER_KEY]: { ...user, analytics } });
