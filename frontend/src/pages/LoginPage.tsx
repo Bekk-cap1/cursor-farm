@@ -79,6 +79,7 @@ export default function LoginPage() {
             <div>
               <label className="mb-1.5 block text-sm font-medium text-stone-700">{t(lang, 'email')}</label>
               <input
+                id="login"
                 type="email"
                 autoComplete="email"
                 value={email}
@@ -90,6 +91,7 @@ export default function LoginPage() {
             <div>
               <label className="mb-1.5 block text-sm font-medium text-stone-700">{t(lang, 'password')}</label>
               <input
+                id="password"
                 type="password"
                 autoComplete="current-password"
                 value={password}

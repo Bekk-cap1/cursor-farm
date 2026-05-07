@@ -18,6 +18,7 @@ import * as api from '../lib/api'
 import { t } from '../i18n/strings'
 import { readRobotDisabled } from '../lib/robotSettings'
 import { NotificationBell } from './NotificationBell'
+import { ExtensionBanner } from './ExtensionBanner'
 
 export function Layout() {
   const { me, logout } = useAuth()
@@ -372,6 +373,8 @@ export function Layout() {
           </div>
         </main>
       </div>
+
+      <ExtensionBanner />
 
       {streamsOpen ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-stone-900/45 p-4">
