@@ -433,12 +433,7 @@ function setAnalyticsStatus(state) {
 }
 
 function fetchAnalyticsForExport(force) {
-  // Use in-memory cache unless forced
-  if (!force && analyticsCache) {
-    setAnalyticsStatus('ok');
-    return;
-  }
-  // Use userData.analytics if already populated
+  if (!force && analyticsCache) { setAnalyticsStatus('ok'); return; }
   if (!force && userData?.analytics) {
     analyticsCache = userData.analytics;
     setAnalyticsStatus('ok');
@@ -448,22 +443,44 @@ function fetchAnalyticsForExport(force) {
   setAnalyticsStatus('loading');
   el('btn-reload-analytics').disabled = true;
 
-  chrome.runtime.sendMessage({ type: 'GET_ANALYTICS' }, (analytics) => {
-    el('btn-reload-analytics').disabled = false;
-    if (chrome.runtime.lastError) {
-      setAnalyticsStatus('error');
+  // First attempt: ask background service worker
+  chrome.runtime.sendMessage({ type: 'GET_ANALYTICS' }, (bgData) => {
+    if (!chrome.runtime.lastError && bgData) {
+      analyticsCache = bgData;
+      if (userData) userData.analytics = bgData;
+      el('btn-reload-analytics').disabled = false;
+      setAnalyticsStatus('ok');
       return;
     }
-    if (!analytics) {
-      // Check if we even have a token
-      chrome.runtime.sendMessage({ type: 'GET_USER_DATA' }, (u) => {
-        setAnalyticsStatus(u?.token ? 'error' : 'noauth');
+
+    // Second attempt: fetch directly from popup context (bypasses SW issues)
+    const token = userData?.token;
+    const base  = userData?.apiOrigin || 'https://cursor-farm-1.onrender.com';
+
+    if (!token) {
+      el('btn-reload-analytics').disabled = false;
+      setAnalyticsStatus('noauth');
+      return;
+    }
+
+    fetch(`${base}/api/dashboard/analyze?lang=en`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        analyticsCache = data;
+        if (userData) userData.analytics = data;
+        el('btn-reload-analytics').disabled = false;
+        setAnalyticsStatus('ok');
+      })
+      .catch(() => {
+        el('btn-reload-analytics').disabled = false;
+        setAnalyticsStatus('error');
       });
-      return;
-    }
-    analyticsCache = analytics;
-    if (userData) userData.analytics = analytics;
-    setAnalyticsStatus('ok');
   });
 }
 

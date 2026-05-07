@@ -51,8 +51,8 @@ async function fetchFarmData(token, apiOrigin) {
 
   try {
     const [meRes, farmsRes] = await Promise.all([
-      fetch(`${base}/api/me`, { headers }),
-      fetch(`${base}/api/farms/`, { headers }),
+      fetch(`${base}/api/auth/me`, { headers }),
+      fetch(`${base}/api/farms`, { headers }),
     ]);
     if (!meRes.ok || !farmsRes.ok) return null;
 
