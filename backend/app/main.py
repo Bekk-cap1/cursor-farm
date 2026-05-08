@@ -10,6 +10,7 @@ from app.api.routes_agent import router as agent_router
 from app.api.routes_audit import router as audit_router
 from app.api.routes_auth import router as auth_router
 from app.api.routes_dashboard import router as dashboard_router
+from app.api.routes_extension import router as extension_router
 from app.api.routes_farm_members import router as farm_members_router
 from app.api.routes_farms import router as farms_router
 from app.api.routes_health import router as health_router
@@ -68,6 +69,7 @@ _ALL_ROUTERS = (
     weather_router,
     agent_router,
     dashboard_router,
+    extension_router,
     notifications_router,
     audit_router,
     farm_members_router,

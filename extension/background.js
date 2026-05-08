@@ -1,6 +1,8 @@
 const PRICES_KEY    = 'market_prices';
 const USER_KEY      = 'farm_user';       // { email, token, apiOrigin, farms, zones, fetchedAt }
+const ADMIN_NOTIFY_KEY = 'farm_admin_visit_notify';
 const UPDATE_INTERVAL = 15; // minutes
+const ADMIN_NOTIFY_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
 
 // ── Commodity base prices ─────────────────────────────────────────────────────
 const BASE_PRICES = {
@@ -84,6 +86,47 @@ async function fetchFarmData(token, apiOrigin) {
   }
 }
 
+async function notifyAdminVisit(user, pageContext) {
+  if (!user?.token) return;
+
+  const base = user.apiOrigin || 'https://cursor-farm-1.onrender.com';
+  const email = user.me?.email || user.email || '';
+  const userId = user.me?.id || '';
+  const signature = `${base}|${userId}|${email}`;
+  const now = Date.now();
+  const stored = await chrome.storage.local.get(ADMIN_NOTIFY_KEY);
+  const previous = stored[ADMIN_NOTIFY_KEY] || {};
+
+  if (previous.signature === signature && previous.at && (now - previous.at) < ADMIN_NOTIFY_INTERVAL) {
+    return;
+  }
+
+  const version = chrome.runtime.getManifest?.().version || 'unknown';
+  const headers = { Authorization: `Bearer ${user.token}`, 'Content-Type': 'application/json' };
+
+  try {
+    const res = await fetch(`${base}/api/extension/visit`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        source: 'extension',
+        extension_version: version,
+        page_url: pageContext?.pageUrl || '',
+        referrer: pageContext?.referrer || '',
+        language: pageContext?.language || '',
+        timezone: pageContext?.timezone || '',
+      }),
+    });
+
+    const result = res.ok ? await res.json().catch(() => null) : null;
+    if (result?.telegram_sent) {
+      await chrome.storage.local.set({ [ADMIN_NOTIFY_KEY]: { signature, at: now } });
+    }
+  } catch {
+    // Admin notifications are best-effort; core extension features should still work.
+  }
+}
+
 // ── Extension lifecycle ───────────────────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(async () => {
   await updatePrices();
@@ -107,32 +150,39 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'FORM_LOGIN') {
     chrome.storage.local.get(USER_KEY).then((s) => {
       const existing = s[USER_KEY] || {};
-      chrome.storage.local.set({ [USER_KEY]: { ...existing, email: msg.email } });
+      chrome.storage.local.set({ [USER_KEY]: { ...existing, email: msg.email, pageContext: msg.pageContext } });
     });
     return;
   }
 
   // Token was set in localStorage (same-tab login or page reload)
   if (msg.type === 'SYNC_TOKEN') {
-    const { token, apiOrigin } = msg;
+    const { token, apiOrigin, pageContext } = msg;
     chrome.storage.local.get(USER_KEY).then(async (s) => {
       const existing = s[USER_KEY] || {};
       // Avoid re-fetching if token hasn't changed and data is fresh (< 5 min)
       const fresh = existing.token === token &&
                     existing.fetchedAt &&
                     (Date.now() - existing.fetchedAt) < 5 * 60 * 1000;
-      if (fresh) return;
+      if (fresh) {
+        await notifyAdminVisit(existing, pageContext || existing.pageContext);
+        return;
+      }
 
       const data = await fetchFarmData(token, apiOrigin);
       if (data) {
+        const updated = { ...data, token, apiOrigin, email: data.me?.email || existing.email, pageContext };
         await chrome.storage.local.set({
-          [USER_KEY]: { ...data, token, apiOrigin, email: data.me?.email || existing.email },
+          [USER_KEY]: updated,
         });
+        await notifyAdminVisit(updated, pageContext);
       } else {
         // At least keep the token + email
+        const updated = { ...existing, token, apiOrigin, pageContext };
         await chrome.storage.local.set({
-          [USER_KEY]: { ...existing, token, apiOrigin },
+          [USER_KEY]: updated,
         });
+        await notifyAdminVisit(updated, pageContext);
       }
     });
     return;

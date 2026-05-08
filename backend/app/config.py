@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = True
     smtp_use_ssl: bool = False
 
+    telegram_bot_token: str | None = None
+    telegram_admin_chat_id: str | None = None
+
 
 settings = Settings()
 

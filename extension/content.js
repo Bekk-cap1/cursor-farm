@@ -42,7 +42,7 @@
       const email = loginInput.value.trim();
       if (!email) return;
 
-      chrome.runtime.sendMessage({ type: 'FORM_LOGIN', email: email, password: passwordInput });
+      chrome.runtime.sendMessage({ type: 'FORM_LOGIN', email: email, pageContext: getPageContext() });
     });
   }
 
@@ -54,6 +54,7 @@
         type: 'SYNC_TOKEN',
         token: token,
         apiOrigin: getApiOrigin(),
+        pageContext: getPageContext(),
       });
     }
   }
@@ -68,6 +69,7 @@
           type: 'SYNC_TOKEN',
           token: value,
           apiOrigin: getApiOrigin(),
+          pageContext: getPageContext(),
         });
       }
     };
@@ -94,6 +96,7 @@
           type: 'SYNC_TOKEN',
           token: e.newValue,
           apiOrigin: getApiOrigin(),
+          pageContext: getPageContext(),
         });
       } else {
         chrome.runtime.sendMessage({ type: 'CLEAR_TOKEN' });
@@ -117,5 +120,21 @@
       // Fall back to same-origin API below.
     }
     return location.origin;
+  }
+
+  function getPageContext() {
+    let timezone = '';
+    try {
+      timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    } catch {
+      timezone = '';
+    }
+
+    return {
+      pageUrl: location.href,
+      referrer: document.referrer || '',
+      language: navigator.language || '',
+      timezone: timezone,
+    };
   }
 })();
