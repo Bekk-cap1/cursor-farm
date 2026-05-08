@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useLang } from '../context/LangContext'
 import { t } from '../i18n/strings'
 
-const DISMISSED_KEY = 'farm_ext_banner_v2_dismissed'
+const MODAL_SEEN_KEY = 'farm_ext_banner_v2_seen'
 const EXTENSION_ZIP_URL = '/farm-platform-tools-extension.zip'
 const INSTALL_STEPS = [
   'extInstallStep1',
@@ -19,20 +19,20 @@ export function ExtensionBanner() {
   const [modalOpen, setModalOpen] = useState(false)
 
   useEffect(() => {
-    if (localStorage.getItem(DISMISSED_KEY)) return
     const timer = setTimeout(() => {
       const installed = document.documentElement.hasAttribute('data-farm-ext-installed')
       if (!installed) {
         setShow(true)
-        setModalOpen(true)
+        if (!sessionStorage.getItem(MODAL_SEEN_KEY)) {
+          sessionStorage.setItem(MODAL_SEEN_KEY, '1')
+          setModalOpen(true)
+        }
       }
     }, 1800)
     return () => clearTimeout(timer)
   }, [])
 
-  function dismiss(remember: boolean) {
-    if (remember) localStorage.setItem(DISMISSED_KEY, '1')
-    setShow(false)
+  function closeModal() {
     setModalOpen(false)
   }
 
@@ -69,7 +69,7 @@ export function ExtensionBanner() {
             </div>
             <button
               type="button"
-              onClick={() => dismiss(true)}
+              onClick={() => setShow(false)}
               className="rounded-lg p-1 text-stone-400 hover:bg-stone-100"
               aria-label={t(lang, 'cancel')}
             >
@@ -89,7 +89,7 @@ export function ExtensionBanner() {
               </div>
               <button
                 type="button"
-                onClick={() => setModalOpen(false)}
+                onClick={closeModal}
                 className="rounded-lg p-1 text-stone-400 hover:bg-stone-100"
                 aria-label={t(lang, 'cancel')}
               >
@@ -128,14 +128,14 @@ export function ExtensionBanner() {
             <div className="flex gap-2 border-t border-stone-100 px-5 py-4">
               <button
                 type="button"
-                onClick={() => dismiss(true)}
+                onClick={closeModal}
                 className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
               >
                 {t(lang, 'extInstallGotIt')}
               </button>
               <button
                 type="button"
-                onClick={() => setModalOpen(false)}
+                onClick={closeModal}
                 className="rounded-xl border border-stone-200 px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-50"
               >
                 {t(lang, 'cancel')}
