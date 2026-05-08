@@ -16,6 +16,42 @@ def telegram_admin_configured() -> bool:
     return bool(settings.telegram_bot_token and settings.telegram_admin_chat_id)
 
 
+def send_login_notice(*, user: User, request: Request) -> None:
+    if not telegram_admin_configured():
+        return
+
+    full_name = " ".join(p for p in (user.first_name, user.last_name) if p).strip()
+    detected_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    lines = [
+        "🔐 <b>Farm AI — вход в аккаунт</b>",
+        _line("User ID", user.id),
+        _line("Email", user.email),
+        _line("Name", full_name),
+        _line("Phone", user.phone),
+        _line("Niche", user.niche),
+        _line("IP", _client_ip(request)),
+        _line("User-Agent", request.headers.get("user-agent")),
+        _line("Time UTC", detected_at),
+    ]
+    text = "\n".join(lines)
+
+    try:
+        response = httpx.post(
+            f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage",
+            json={
+                "chat_id": settings.telegram_admin_chat_id,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            },
+            timeout=5.0,
+        )
+        response.raise_for_status()
+    except httpx.HTTPError:
+        logger.exception("Failed to send Telegram login notice")
+
+
 def _client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded:
