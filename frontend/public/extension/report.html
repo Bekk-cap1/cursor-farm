@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Farm Platform Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      color: #1a1a1a;
+      padding: 36px 40px;
+      max-width: 860px;
+      margin: auto;
+      background: #fff;
+    }
+    .report-header {
+      display: flex; align-items: center; gap: 14px;
+      border-bottom: 3px solid #059669; padding-bottom: 14px; margin-bottom: 6px;
+    }
+    .report-icon {
+      width: 46px; height: 46px; border-radius: 12px;
+      background: #059669; display: flex; align-items: center; justify-content: center;
+      font-size: 24px; flex-shrink: 0;
+    }
+    h1 { color: #064e3b; font-size: 22px; }
+    .meta { color: #6b7280; font-size: 12px; margin-top: 3px; }
+
+    h2 { color: #065f46; font-size: 16px; margin: 28px 0 8px; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    th {
+      background: #059669; color: #fff;
+      padding: 10px 13px; text-align: left; font-size: 13px;
+    }
+    td { padding: 8px 13px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+    tr:nth-child(even) td { background: #f0fdf4; }
+
+    .profit { color: #16a34a; font-weight: 700; }
+    .loss   { color: #dc2626; font-weight: 700; }
+
+    .change-up   { color: #16a34a; font-weight: 600; }
+    .change-down { color: #dc2626; font-weight: 600; }
+
+    .insight { margin-top: 8px; padding: 7px 12px; border-radius: 6px; font-size: 12px; }
+    .insight.critical { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .insight.warning  { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .insight.info     { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+
+    .footer {
+      margin-top: 36px; padding-top: 12px;
+      border-top: 1px solid #e5e7eb;
+      color: #9ca3af; font-size: 11px;
+    }
+
+    /* Print button — hidden when printing */
+    .print-bar {
+      margin-top: 28px; display: flex; gap: 10px;
+    }
+    .btn-print {
+      padding: 11px 22px; background: #059669; color: #fff;
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-print:hover { background: #047857; }
+    .btn-close {
+      padding: 11px 18px; background: #fff; color: #374151;
+      border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;
+      cursor: pointer;
+    }
+
+    #loading { color: #6b7280; font-size: 14px; padding: 40px 0; text-align: center; }
+
+    @media print {
+      .print-bar { display: none; }
+      body { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">⏳ Generating report…</div>
+  <div id="report" style="display:none;"></div>
+  <script src="report.js"></script>
+</body>
+</html>

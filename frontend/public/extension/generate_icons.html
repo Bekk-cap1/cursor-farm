@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Generate Extension Icons</title>
+  <style>
+    body { font-family: sans-serif; padding: 30px; background: #f0fdf4; color: #064e3b; }
+    h1   { margin-bottom: 8px; }
+    p    { margin-bottom: 20px; color: #374151; font-size: 14px; }
+    .icons { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; margin-bottom: 28px; }
+    .icon-item { text-align: center; }
+    .icon-item canvas { display: block; margin: 0 auto 6px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    a.dl {
+      display: inline-block; padding: 5px 12px;
+      background: #059669; color: #fff; border-radius: 5px;
+      text-decoration: none; font-size: 12px; font-weight: 600;
+    }
+    a.dl:hover { background: #047857; }
+    .instructions {
+      background: #fff; border: 1px solid #a7f3d0; border-radius: 10px;
+      padding: 18px 22px; max-width: 600px;
+    }
+    .instructions h2 { margin-bottom: 10px; font-size: 15px; }
+    .instructions ol { padding-left: 18px; line-height: 2; font-size: 13px; }
+    code { background: #f3f4f6; padding: 2px 5px; border-radius: 4px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>🌱 Farm Platform Tools — Icon Generator</h1>
+  <p>Open this file in a browser, then download each icon and save it to the <code>extension/icons/</code> folder.</p>
+
+  <div class="icons" id="icon-container"></div>
+
+  <div class="instructions">
+    <h2>How to save</h2>
+    <ol>
+      <li>Click each <strong>Download</strong> button above.</li>
+      <li>Save the files into <code>extension/icons/</code> with the exact names shown.</li>
+      <li>Reload the extension in Chrome (<code>chrome://extensions</code> → ↻ refresh).</li>
+    </ol>
+  </div>
+
+  <script>
+    const SIZES = [16, 48, 128];
+
+    function drawIcon(size) {
+      const canvas = document.createElement('canvas');
+      canvas.width  = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const r   = size * 0.18; // corner radius
+
+      // Background — emerald gradient
+      const grad = ctx.createLinearGradient(0, 0, size, size);
+      grad.addColorStop(0, '#059669');
+      grad.addColorStop(1, '#047857');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, r);
+      ctx.fill();
+
+      // White leaf shape
+      ctx.save();
+      ctx.translate(size * 0.5, size * 0.5);
+      ctx.scale(size / 128, size / 128);
+
+      const lw = 7;
+      ctx.strokeStyle = '#fff';
+      ctx.fillStyle   = '#fff';
+      ctx.lineWidth   = lw;
+      ctx.lineCap     = 'round';
+
+      // Leaf body (centered on 0,0 mapped from 128×128)
+      const cx = 0, cy = 0;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 38);
+      ctx.bezierCurveTo(cx + 42, cy - 38, cx + 42, cy + 18, cx, cy + 18);
+      ctx.bezierCurveTo(cx - 42, cy + 18, cx - 42, cy - 38, cx, cy - 38);
+      ctx.fill();
+
+      // Stem
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + 18);
+      ctx.quadraticCurveTo(cx - 6, cy + 38, cx - 10, cy + 50);
+      ctx.stroke();
+
+      ctx.restore();
+      return canvas;
+    }
+
+    const container = document.getElementById('icon-container');
+
+    SIZES.forEach((size) => {
+      const canvas = drawIcon(size);
+      const item   = document.createElement('div');
+      item.className = 'icon-item';
+
+      const link = document.createElement('a');
+      link.className = 'dl';
+      link.download  = `icon${size}.png`;
+      link.textContent = `⬇ icon${size}.png`;
+      link.href = canvas.toDataURL('image/png');
+
+      item.appendChild(canvas);
+      item.insertAdjacentHTML('beforeend', `<div style="font-size:11px;color:#6b7280;margin-bottom:5px;">${size}×${size}</div>`);
+      item.appendChild(link);
+      container.appendChild(item);
+    });
+  </script>
+</body>
+</html>
