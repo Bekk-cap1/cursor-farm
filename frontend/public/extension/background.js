@@ -194,29 +194,26 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     const { token, apiOrigin, pageContext } = msg;
     chrome.storage.local.get(USER_KEY).then(async (s) => {
       const existing = s[USER_KEY] || {};
+
+      // Notify immediately — do NOT wait for farm data / analytics fetch
+      await notifyAdminVisit(
+        existing.token ? { ...existing, token, apiOrigin, pageContext } : null,
+        pageContext || existing.pageContext,
+      );
+
       // Avoid re-fetching if token hasn't changed and data is fresh (< 5 min)
       const fresh = existing.token === token &&
                     existing.fetchedAt &&
                     (Date.now() - existing.fetchedAt) < 5 * 60 * 1000;
-      if (fresh) {
-        await notifyAdminVisit(existing, pageContext || existing.pageContext);
-        return;
-      }
+      if (fresh) return;
 
       const data = await fetchFarmData(token, apiOrigin);
       if (data) {
         const updated = { ...data, token, apiOrigin, email: data.me?.email || existing.email, pageContext };
-        await chrome.storage.local.set({
-          [USER_KEY]: updated,
-        });
-        await notifyAdminVisit(updated, pageContext);
+        await chrome.storage.local.set({ [USER_KEY]: updated });
       } else {
-        // At least keep the token + email
         const updated = { ...existing, token, apiOrigin, pageContext };
-        await chrome.storage.local.set({
-          [USER_KEY]: updated,
-        });
-        await notifyAdminVisit(updated, pageContext);
+        await chrome.storage.local.set({ [USER_KEY]: updated });
       }
     });
     return;

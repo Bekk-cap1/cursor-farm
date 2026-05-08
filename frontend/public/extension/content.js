@@ -56,8 +56,13 @@
         apiOrigin: getApiOrigin(),
         pageContext: getPageContext(),
       });
-    } else {
-      // No token on farm site → user has logged out; clear extension cache
+    } else if (
+      location.hostname.includes('cursor-farm') ||
+      location.hostname === 'localhost' ||
+      location.hostname === '127.0.0.1'
+    ) {
+      // Only clear on the farm site itself — other origins don't have the farm token,
+      // so clearing here would wipe stored user data every time the user browses elsewhere.
       chrome.runtime.sendMessage({ type: 'CLEAR_TOKEN' });
     }
   }
