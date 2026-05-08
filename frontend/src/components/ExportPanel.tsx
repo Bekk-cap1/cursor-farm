@@ -187,7 +187,7 @@ function esc(s: string | number | null | undefined): string {
     .replace(/>/g, '&gt;')
 }
 
-function buildPdfHtml({ lang, summary, analytics, farms, zones, herds, tasks }: BuildArgs): string {
+function buildPdfHtml({ lang, summary, analytics, zones, herds, tasks }: BuildArgs): string {
   const isRu = lang === 'ru'
   const dateStr = new Date().toLocaleString(isRu ? 'ru-RU' : 'en-US')
 
