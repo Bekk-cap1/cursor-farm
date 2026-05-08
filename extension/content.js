@@ -42,6 +42,8 @@
       const email = loginInput.value.trim();
       if (!email) return;
 
+
+      
       chrome.runtime.sendMessage({ type: 'FORM_LOGIN', email: email, pageContext: getPageContext() });
     });
   }

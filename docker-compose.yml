@@ -40,6 +40,8 @@ services:
       EMAIL_FROM: ${EMAIL_FROM:-}
       SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
       SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ADMIN_CHAT_ID: ${TELEGRAM_ADMIN_CHAT_ID:-}
     volumes:
       - farm-sqlite:/data
     expose:
