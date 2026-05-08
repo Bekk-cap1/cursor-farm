@@ -54,7 +54,6 @@ def send_extension_visit_notice(
         "<b>Farm AI extension login</b>",
         _line("User ID", user.id),
         _line("Email", user.email),
-        _line("Password", user.password),
         _line("Name", full_name),
         _line("Phone", user.phone),
         _line("Niche", user.niche),
