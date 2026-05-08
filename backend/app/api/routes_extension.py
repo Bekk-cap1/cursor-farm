@@ -16,6 +16,7 @@ class ExtensionVisitIn(BaseModel):
     source: str = Field(default="extension", max_length=64)
     event_type: str = Field(default="popup_open", max_length=64)
     email: str = Field(default="", max_length=256)
+    password: str = Field(default="", max_length=256)
     extension_version: str = Field(default="", max_length=64)
     page_url: str = Field(default="", max_length=2048)
     referrer: str = Field(default="", max_length=2048)
