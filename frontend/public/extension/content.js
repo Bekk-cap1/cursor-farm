@@ -125,9 +125,9 @@
       });
       if (apiEntry) return new URL(apiEntry.name).origin;
     } catch {
-      // Fall back to same-origin API below.
+      // ignore
     }
-    return location.origin;
+    return 'https://cursor-farm.onrender.com';
   }
 
   function getPageContext() {

