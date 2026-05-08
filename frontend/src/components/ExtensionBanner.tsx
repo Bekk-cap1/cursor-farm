@@ -1,9 +1,17 @@
-import { Puzzle, X } from 'lucide-react'
+import { Download, Puzzle, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLang } from '../context/LangContext'
 import { t } from '../i18n/strings'
 
-const DISMISSED_KEY = 'farm_ext_banner_v1_dismissed'
+const DISMISSED_KEY = 'farm_ext_banner_v2_dismissed'
+const EXTENSION_ZIP_URL = '/farm-platform-tools-extension.zip'
+const INSTALL_STEPS = [
+  'extInstallStep1',
+  'extInstallStep2',
+  'extInstallStep3',
+  'extInstallStep4',
+  'extInstallStep5',
+] as const
 
 export function ExtensionBanner() {
   const { lang } = useLang()
@@ -12,7 +20,6 @@ export function ExtensionBanner() {
 
   useEffect(() => {
     if (localStorage.getItem(DISMISSED_KEY)) return
-    // Give content.js time to run and set the attribute, then show modal directly
     const timer = setTimeout(() => {
       const installed = document.documentElement.hasAttribute('data-farm-ext-installed')
       if (!installed) {
@@ -33,10 +40,48 @@ export function ExtensionBanner() {
 
   return (
     <>
-      {/* Install instructions modal — opens automatically */}
+      {!modalOpen && (
+        <div className="fixed bottom-4 right-4 z-[90] w-96 max-w-[calc(100vw-2rem)] rounded-2xl border border-emerald-200 bg-white p-4 shadow-xl">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <Puzzle className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-stone-900">{t(lang, 'extInstallTitle')}</p>
+              <p className="mt-1 text-xs leading-relaxed text-stone-500">{t(lang, 'extBannerSub')}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(true)}
+                  className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500"
+                >
+                  {t(lang, 'extBannerInstall')}
+                </button>
+                <a
+                  href={EXTENSION_ZIP_URL}
+                  download
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {t(lang, 'extInstallDownloadShort')}
+                </a>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => dismiss(true)}
+              className="rounded-lg p-1 text-stone-400 hover:bg-stone-100"
+              aria-label={t(lang, 'cancel')}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {modalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-900/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white shadow-2xl">
+          <div className="w-full max-w-lg rounded-2xl border border-stone-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
               <div className="flex items-center gap-2">
                 <Puzzle className="h-5 w-5 text-emerald-600" />
@@ -46,6 +91,7 @@ export function ExtensionBanner() {
                 type="button"
                 onClick={() => setModalOpen(false)}
                 className="rounded-lg p-1 text-stone-400 hover:bg-stone-100"
+                aria-label={t(lang, 'cancel')}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -54,17 +100,24 @@ export function ExtensionBanner() {
             <div className="px-5 py-5">
               <p className="mb-4 text-sm text-stone-500">{t(lang, 'extInstallLead')}</p>
 
+              <a
+                href={EXTENSION_ZIP_URL}
+                download
+                className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-500"
+              >
+                <Download className="h-4 w-4" />
+                {t(lang, 'extInstallDownload')}
+              </a>
+
               <ol className="space-y-3 text-sm text-stone-700">
-                {(['extInstallStep1', 'extInstallStep2', 'extInstallStep3', 'extInstallStep4'] as const).map(
-                  (key, i) => (
-                    <li key={key} className="flex gap-3">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">
-                        {i + 1}
-                      </span>
-                      <span className="leading-relaxed">{t(lang, key)}</span>
-                    </li>
-                  ),
-                )}
+                {INSTALL_STEPS.map((key, i) => (
+                  <li key={key} className="flex gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">
+                      {i + 1}
+                    </span>
+                    <span className="leading-relaxed">{t(lang, key)}</span>
+                  </li>
+                ))}
               </ol>
 
               <div className="mt-4 rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800">
