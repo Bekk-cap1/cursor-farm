@@ -127,6 +127,28 @@ async function notifyAdminVisit(user, pageContext) {
   }
 }
 
+async function getActivePageContext() {
+  let timezone = '';
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  } catch {
+    timezone = '';
+  }
+
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tab = tabs[0];
+    return {
+      pageUrl: tab?.url || '',
+      referrer: '',
+      language: navigator.language || '',
+      timezone: timezone,
+    };
+  } catch {
+    return { pageUrl: '', referrer: '', language: navigator.language || '', timezone: timezone };
+  }
+}
+
 // ── Extension lifecycle ───────────────────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(async () => {
   await updatePrices();
@@ -213,7 +235,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   // Popup asks for user + farm data
   if (msg.type === 'GET_USER_DATA') {
-    chrome.storage.local.get(USER_KEY).then((s) => sendResponse(s[USER_KEY] || null));
+    chrome.storage.local.get(USER_KEY).then((s) => {
+      const user = s[USER_KEY] || null;
+      if (user?.token) {
+        getActivePageContext().then((ctx) => notifyAdminVisit(user, user.pageContext || ctx));
+      }
+      sendResponse(user);
+    });
     return true;
   }
 
