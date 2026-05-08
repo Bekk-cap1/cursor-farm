@@ -19,6 +19,19 @@ const CROPS = {
 function el(id)    { return document.getElementById(id); }
 function qsa(sel)  { return document.querySelectorAll(sel); }
 
+function sendRuntimeMessage(msg) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(msg, (resp) => {
+      if (chrome.runtime.lastError) { resolve(null); return; }
+      resolve(resp ?? null);
+    });
+  });
+}
+
+function apiEndpoint(base, path) {
+  return `${(base || SITE_URL).replace(/\/$/, '')}${path}`;
+}
+
 function fmtUSD(n) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -116,63 +129,124 @@ function checkAuth(attempt = 0) {
 }
 
 // Read farm_token from the active tab — tries scripting API first, falls back to tab message
-function tryReadTokenFromTab(onNotFound) {
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const tab = tabs?.[0];
-    if (!tab?.id || !tab.url) { onNotFound?.(); return; }
+function isFarmTabUrl(url) {
+  try {
+    const u = new URL(url);
+    return u.hostname.includes('cursor-farm') ||
+      u.hostname === 'localhost' ||
+      u.hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
+}
 
-    const isFarmTab = tab.url.includes('cursor-farm') || tab.url.includes('localhost');
-    if (!isFarmTab) { onNotFound?.(); return; }
+function normalizeTabAuth(raw, fallbackOrigin) {
+  if (!raw) return null;
+  if (typeof raw === 'string') return { token: raw, apiOrigin: fallbackOrigin };
+  if (raw.token) return { token: raw.token, apiOrigin: raw.apiOrigin || fallbackOrigin };
+  return null;
+}
 
-    function handleToken(token) {
-      if (token) {
-        const origin = new URL(tab.url).origin;
-        chrome.runtime.sendMessage({ type: 'SYNC_TOKEN', token, apiOrigin: origin });
-        onLoggedIn({ token, email: null });
-      } else {
-        onNotFound?.();
-      }
-    }
-
-    // Method 1: chrome.scripting (requires scripting permission + full reload)
-    if (chrome.scripting?.executeScript) {
-      chrome.scripting.executeScript(
-        { target: { tabId: tab.id }, func: () => localStorage.getItem('farm_token') },
-        (results) => {
-          if (chrome.runtime.lastError) {
-            tryViaContentScript(tab.id, handleToken, onNotFound);
-            return;
-          }
-          handleToken(results?.[0]?.result);
-        }
-      );
-      return;
-    }
-
-    // Method 2: ask the content script already running on the page
-    tryViaContentScript(tab.id, handleToken, onNotFound);
+function readTokenViaContentScript(tabId, fallbackOrigin) {
+  return new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, { type: 'GET_TOKEN' }, (resp) => {
+      if (chrome.runtime.lastError || !resp) { resolve(null); return; }
+      resolve(normalizeTabAuth(resp, fallbackOrigin));
+    });
   });
 }
 
-function tryViaContentScript(tabId, onToken, onNotFound) {
-  chrome.tabs.sendMessage(tabId, { type: 'GET_TOKEN' }, (resp) => {
-    if (chrome.runtime.lastError || !resp) { onNotFound?.(); return; }
-    onToken(resp.token);
+function readActiveTabAuth() {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs?.[0];
+      if (!tab?.id || !tab.url || !isFarmTabUrl(tab.url)) { resolve(null); return; }
+
+      const fallbackOrigin = new URL(tab.url).origin;
+      const finish = (raw) => resolve(normalizeTabAuth(raw, fallbackOrigin));
+
+      if (chrome.scripting?.executeScript) {
+        chrome.scripting.executeScript(
+          {
+            target: { tabId: tab.id },
+            func: () => {
+              const token = localStorage.getItem('farm_token');
+              try {
+                const entries = performance.getEntriesByType('resource') || [];
+                const hit = entries.find((entry) => {
+                  try {
+                    return /\/api\/(auth|dashboard|farms)\b/.test(new URL(entry.name).pathname);
+                  } catch {
+                    return false;
+                  }
+                });
+                return { token, apiOrigin: hit ? new URL(hit.name).origin : location.origin };
+              } catch {
+                return { token, apiOrigin: location.origin };
+              }
+            },
+          },
+          async (results) => {
+            if (chrome.runtime.lastError) {
+              finish(await readTokenViaContentScript(tab.id, fallbackOrigin));
+              return;
+            }
+            finish(results?.[0]?.result || null);
+          }
+        );
+        return;
+      }
+
+      readTokenViaContentScript(tab.id, fallbackOrigin).then(finish);
+    });
+  });
+}
+
+function syncActiveTabAuth() {
+  return readActiveTabAuth().then((auth) => {
+    if (!auth) return userData;
+
+    userData = {
+      ...(userData || {}),
+      token: auth.token,
+      apiOrigin: auth.apiOrigin,
+      email: userData?.email || userData?.me?.email || null,
+    };
+    chrome.runtime.sendMessage({ type: 'SYNC_TOKEN', token: auth.token, apiOrigin: auth.apiOrigin });
+    return userData;
+  });
+}
+
+function mergeUserData(data) {
+  userData = {
+    ...(userData || {}),
+    ...(data || {}),
+    token: data?.token || userData?.token || null,
+    apiOrigin: data?.apiOrigin || userData?.apiOrigin || null,
+  };
+  return userData;
+}
+
+function tryReadTokenFromTab(onNotFound) {
+  readActiveTabAuth().then((auth) => {
+    if (!auth) { onNotFound?.(); return; }
+    chrome.runtime.sendMessage({ type: 'SYNC_TOKEN', token: auth.token, apiOrigin: auth.apiOrigin });
+    onLoggedIn({ token: auth.token, apiOrigin: auth.apiOrigin, email: null });
   });
 }
 
 function onLoggedIn(data) {
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
-  userData = data;
-  renderUserInfo(data);
+  mergeUserData(data);
+  renderUserInfo(userData);
   showMainUI();
   loadUserData();
   // Re-fetch full user data shortly after (background may still be fetching)
   setTimeout(() => {
     chrome.runtime.sendMessage({ type: 'GET_USER_DATA' }, (d) => {
       if (d && (d.email || d.farms)) {
-        userData = d;
-        renderUserInfo(d);
+        mergeUserData(d);
+        renderUserInfo(userData);
       }
     });
   }, 2500);
@@ -382,8 +456,8 @@ function loadUserData(retries = 2) {
       if (retries > 0) setTimeout(() => loadUserData(retries - 1), 600);
       return;
     }
-    userData = data;
-    renderUserInfo(data);
+    mergeUserData(data);
+    renderUserInfo(userData);
   });
 }
 
@@ -432,7 +506,42 @@ function setAnalyticsStatus(state) {
   }
 }
 
-function fetchAnalyticsForExport(force) {
+function isAnalyticsPayload(data) {
+  return data &&
+    typeof data === 'object' &&
+    typeof data.scans === 'number' &&
+    typeof data.data_quality === 'number';
+}
+
+async function fetchAnalyticsDirect() {
+  const token = userData?.token;
+  if (!token) throw new Error('NO_AUTH');
+
+  const res = await fetch(apiEndpoint(userData?.apiOrigin, '/api/dashboard/analyze?lang=en'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function loadAnalyticsForExport() {
+  const cached = await sendRuntimeMessage({ type: 'GET_ANALYTICS' });
+  if (isAnalyticsPayload(cached)) return cached;
+
+  await syncActiveTabAuth();
+  if (!userData?.token) throw new Error('NO_AUTH');
+
+  try {
+    return await fetchAnalyticsDirect();
+  } catch (err) {
+    const refreshed = await sendRuntimeMessage({ type: 'GET_ANALYTICS' });
+    if (isAnalyticsPayload(refreshed)) return refreshed;
+    throw err;
+  }
+}
+
+async function fetchAnalyticsForExport(force) {
   if (!force && analyticsCache) { setAnalyticsStatus('ok'); return; }
   if (!force && userData?.analytics) {
     analyticsCache = userData.analytics;
@@ -443,45 +552,16 @@ function fetchAnalyticsForExport(force) {
   setAnalyticsStatus('loading');
   el('btn-reload-analytics').disabled = true;
 
-  // First attempt: ask background service worker
-  chrome.runtime.sendMessage({ type: 'GET_ANALYTICS' }, (bgData) => {
-    if (!chrome.runtime.lastError && bgData) {
-      analyticsCache = bgData;
-      if (userData) userData.analytics = bgData;
-      el('btn-reload-analytics').disabled = false;
-      setAnalyticsStatus('ok');
-      return;
-    }
-
-    // Second attempt: fetch directly from popup context (bypasses SW issues)
-    const token = userData?.token;
-    const base  = userData?.apiOrigin || 'https://cursor-farm-1.onrender.com';
-
-    if (!token) {
-      el('btn-reload-analytics').disabled = false;
-      setAnalyticsStatus('noauth');
-      return;
-    }
-
-    fetch(`${base}/api/dashboard/analyze?lang=en`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((data) => {
-        analyticsCache = data;
-        if (userData) userData.analytics = data;
-        el('btn-reload-analytics').disabled = false;
-        setAnalyticsStatus('ok');
-      })
-      .catch(() => {
-        el('btn-reload-analytics').disabled = false;
-        setAnalyticsStatus('error');
-      });
-  });
+  try {
+    const data = await loadAnalyticsForExport();
+    analyticsCache = data;
+    if (userData) userData.analytics = data;
+    setAnalyticsStatus('ok');
+  } catch (err) {
+    setAnalyticsStatus(err?.message === 'NO_AUTH' ? 'noauth' : 'error');
+  } finally {
+    el('btn-reload-analytics').disabled = false;
+  }
 }
 
 function getExportPayload() {
@@ -525,7 +605,7 @@ function handlePdfExport() {
   runExportWithAnalytics(d, exportAsPDF, el('btn-export-pdf'));
 }
 
-function runExportWithAnalytics(d, exportFn, btn) {
+async function runExportWithAnalytics(d, exportFn, btn) {
   if (d.analytics) {
     exportFn(d);
     return;
@@ -536,15 +616,20 @@ function runExportWithAnalytics(d, exportFn, btn) {
   btn.textContent = '⏳ AI…';
   btn.disabled = true;
 
-  chrome.runtime.sendMessage({ type: 'GET_ANALYTICS' }, (analytics) => {
-    btn.textContent = origText;
-    btn.disabled = false;
-    if (analytics) {
+  try {
+    const analytics = await loadAnalyticsForExport();
+    if (isAnalyticsPayload(analytics)) {
       analyticsCache = analytics;
+      if (userData) userData.analytics = analytics;
       setAnalyticsStatus('ok');
     }
     exportFn({ ...d, analytics: analytics ?? null });
-  });
+  } catch {
+    exportFn({ ...d, analytics: null });
+  } finally {
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
 }
 
 // ── Excel export (HTML→XLS trick, no library needed) ─────────────────────────

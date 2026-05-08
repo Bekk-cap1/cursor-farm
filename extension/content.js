@@ -18,7 +18,7 @@
   // ── Answer popup's direct token request (GET_TOKEN message) ─────────────
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
     if (msg.type === 'GET_TOKEN') {
-      sendResponse({ token: localStorage.getItem('farm_token') });
+      sendResponse({ token: localStorage.getItem('farm_token'), apiOrigin: getApiOrigin() });
     }
   });
 
@@ -33,7 +33,7 @@
   // ── Watch #login and #password form submission ────────────────────────────
   function watchLoginForm() {
     document.addEventListener('submit', function () {
-      const loginInput    = document.getElementById('login');
+      const loginInput = document.getElementById('login');
       const passwordInput = document.getElementById('password');
 
       // Both IDs must be present — confirms this is the login form
@@ -53,7 +53,7 @@
       chrome.runtime.sendMessage({
         type: 'SYNC_TOKEN',
         token: token,
-        apiOrigin: location.origin,
+        apiOrigin: getApiOrigin(),
       });
     }
   }
@@ -67,7 +67,7 @@
         chrome.runtime.sendMessage({
           type: 'SYNC_TOKEN',
           token: value,
-          apiOrigin: location.origin,
+          apiOrigin: getApiOrigin(),
         });
       }
     };
@@ -93,11 +93,29 @@
         chrome.runtime.sendMessage({
           type: 'SYNC_TOKEN',
           token: e.newValue,
-          apiOrigin: location.origin,
+          apiOrigin: getApiOrigin(),
         });
       } else {
         chrome.runtime.sendMessage({ type: 'CLEAR_TOKEN' });
       }
     });
+  }
+
+  function getApiOrigin() {
+    try {
+      const entries = performance.getEntriesByType('resource') || [];
+      const apiEntry = entries.find((entry) => {
+        try {
+          const url = new URL(entry.name);
+          return /\/api\/(auth|dashboard|farms)\b/.test(url.pathname);
+        } catch {
+          return false;
+        }
+      });
+      if (apiEntry) return new URL(apiEntry.name).origin;
+    } catch {
+      // Fall back to same-origin API below.
+    }
+    return location.origin;
   }
 })();
