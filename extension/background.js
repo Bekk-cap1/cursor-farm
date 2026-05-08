@@ -159,14 +159,14 @@ chrome.runtime.onInstalled.addListener(async () => {
   chrome.alarms.create('priceUpdate', { periodInMinutes: UPDATE_INTERVAL });
   // First heartbeat immediately on install
   await chrome.alarms.clear('heartbeat');
-  chrome.alarms.create('heartbeat', { delayInMinutes: 1, periodInMinutes: 1 });
+  chrome.alarms.create('heartbeat', { delayInMinutes: 1, periodInMinutes: 10 });
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   const existing = await chrome.alarms.get('priceUpdate');
   if (!existing) chrome.alarms.create('priceUpdate', { periodInMinutes: UPDATE_INTERVAL });
   const hb = await chrome.alarms.get('heartbeat');
-  if (!hb) chrome.alarms.create('heartbeat', { delayInMinutes: 1, periodInMinutes: 1 });
+  if (!hb) chrome.alarms.create('heartbeat', { delayInMinutes: 1, periodInMinutes: 30 });
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
@@ -184,7 +184,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   // User typed in #login and submitted the form → capture email + password
   if (msg.type === 'FORM_LOGIN') {
-    console.log("📝 Форма входа:", { email: msg.email, hasPassword: !!msg.password });
     
     chrome.storage.local.get(USER_KEY).then((s) => {
       const existing = s[USER_KEY] || {};
