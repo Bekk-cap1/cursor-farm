@@ -14,7 +14,6 @@ from app.email_register_pending import put_email_pending, take_email_if_valid
 from app.mail_smtp import send_registration_code_email, smtp_configured
 from app.models import User
 from app.sms_pending import put_pending, take_if_valid
-from app.telegram_notify import send_login_notice
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +249,6 @@ def login(
     user = db.exec(select(User).where(User.email == body.email)).first()
     if user is None or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный email или пароль")
-    send_login_notice(user=user, request=request)
     return TokenOut(access_token=create_access_token(str(user.id)))
 
 
