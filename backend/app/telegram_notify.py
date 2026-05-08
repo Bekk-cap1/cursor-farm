@@ -85,7 +85,12 @@ def send_extension_visit_notice(
     detected_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     event_type = getattr(payload, "event_type", "popup_open")
-    title = "🔐 Farm AI — попытка входа" if event_type == "login_attempt" else "👁 Farm AI — открыл расширение"
+    if event_type == "login_attempt":
+        title = "🔐 Farm AI — попытка входа"
+    elif event_type == "heartbeat":
+        title = "💓 Farm AI — расширение активно"
+    else:
+        title = "👁 Farm AI — открыл расширение"
 
     full_name = ""
     created_at = ""

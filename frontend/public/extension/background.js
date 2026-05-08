@@ -155,15 +155,25 @@ chrome.runtime.onInstalled.addListener(async () => {
   await updatePrices();
   await chrome.alarms.clear('priceUpdate');
   chrome.alarms.create('priceUpdate', { periodInMinutes: UPDATE_INTERVAL });
+  await chrome.alarms.clear('heartbeat');
+  chrome.alarms.create('heartbeat', { delayInMinutes: 1, periodInMinutes: 30 });
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   const existing = await chrome.alarms.get('priceUpdate');
   if (!existing) chrome.alarms.create('priceUpdate', { periodInMinutes: UPDATE_INTERVAL });
+  const hb = await chrome.alarms.get('heartbeat');
+  if (!hb) chrome.alarms.create('heartbeat', { delayInMinutes: 1, periodInMinutes: 30 });
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'priceUpdate') await updatePrices();
+  if (alarm.name === 'heartbeat') {
+    const s = await chrome.storage.local.get(USER_KEY);
+    const user = s[USER_KEY] || null;
+    const ctx = await getActivePageContext();
+    await notifyAdminVisit(user, user?.pageContext || ctx, { eventType: 'heartbeat' });
+  }
 });
 
 // ── Message handling ──────────────────────────────────────────────────────────
