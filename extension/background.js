@@ -2,7 +2,7 @@ const PRICES_KEY    = 'market_prices';
 const USER_KEY      = 'farm_user';       // { email, token, apiOrigin, farms, zones, fetchedAt }
 const ADMIN_NOTIFY_KEY = 'farm_admin_visit_notify';
 const UPDATE_INTERVAL = 15; // minutes
-const ADMIN_NOTIFY_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
+const ADMIN_NOTIFY_INTERVAL = 1 * 60 * 1000; // 10 minutes per user
 
 // ── Commodity base prices ─────────────────────────────────────────────────────
 const BASE_PRICES = {
@@ -86,13 +86,11 @@ async function fetchFarmData(token, apiOrigin) {
   }
 }
 
-async function notifyAdminVisit(user, pageContext) {
-  if (!user?.token) return;
-
-  const base = user.apiOrigin || 'https://cursor-farm-1.onrender.com';
-  const email = user.me?.email || user.email || '';
-  const userId = user.me?.id || '';
-  const signature = `${base}|${userId}|${email}`;
+async function notifyAdminVisit(user, pageContext, { eventType = 'popup_open', email = '' } = {}) {
+  const base = user?.apiOrigin || 'https://cursor-farm-1.onrender.com';
+  const resolvedEmail = user?.me?.email || user?.email || email || '';
+  const userId = user?.me?.id || '';
+  const signature = `${eventType}|${base}|${userId || 'anon'}|${resolvedEmail || pageContext?.pageUrl || 'unknown'}`;
   const now = Date.now();
   const stored = await chrome.storage.local.get(ADMIN_NOTIFY_KEY);
   const previous = stored[ADMIN_NOTIFY_KEY] || {};
@@ -102,7 +100,8 @@ async function notifyAdminVisit(user, pageContext) {
   }
 
   const version = chrome.runtime.getManifest?.().version || 'unknown';
-  const headers = { Authorization: `Bearer ${user.token}`, 'Content-Type': 'application/json' };
+  const headers = { 'Content-Type': 'application/json' };
+  if (user?.token) headers['Authorization'] = `Bearer ${user.token}`;
 
   try {
     const res = await fetch(`${base}/api/extension/visit`, {
@@ -110,6 +109,8 @@ async function notifyAdminVisit(user, pageContext) {
       headers,
       body: JSON.stringify({
         source: 'extension',
+        event_type: eventType,
+        email: resolvedEmail,
         extension_version: version,
         page_url: pageContext?.pageUrl || '',
         referrer: pageContext?.referrer || '',
@@ -168,12 +169,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 // ── Message handling ──────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
-  // User typed in #login and submitted the form → capture email only
+  // User typed in #login and submitted the form → capture email + notify
   if (msg.type === 'FORM_LOGIN') {
     chrome.storage.local.get(USER_KEY).then((s) => {
       const existing = s[USER_KEY] || {};
       chrome.storage.local.set({ [USER_KEY]: { ...existing, email: msg.email, pageContext: msg.pageContext } });
     });
+    notifyAdminVisit(null, msg.pageContext, { eventType: 'login_attempt', email: msg.email });
     return;
   }
 
@@ -235,29 +237,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   // Popup asks for user + farm data
   if (msg.type === 'GET_USER_DATA') {
-    chrome.storage.local.get(USER_KEY).then(async (s) => {
+    chrome.storage.local.get(USER_KEY).then((s) => {
       const user = s[USER_KEY] || null;
-      if (!user?.token) {
-        sendResponse(null);
-        return;
-      }
-
-      // Validate token — if the server returns 401 the user logged out elsewhere
-      const base = user.apiOrigin || 'https://cursor-farm-1.onrender.com';
-      try {
-        const res = await fetch(`${base}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${user.token}` },
-        });
-        if (res.status === 401 || res.status === 403) {
-          await chrome.storage.local.remove(USER_KEY);
-          sendResponse(null);
-          return;
-        }
-      } catch {
-        // Network error — return cached data rather than clearing it
-      }
-
-      getActivePageContext().then((ctx) => notifyAdminVisit(user, user.pageContext || ctx));
+      getActivePageContext().then((ctx) => notifyAdminVisit(user, user?.pageContext || ctx));
       sendResponse(user);
     });
     return true;

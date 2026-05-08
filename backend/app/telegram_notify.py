@@ -38,7 +38,7 @@ def _line(label: str, value: Any) -> str:
 
 def send_extension_visit_notice(
     *,
-    user: User,
+    user: User | None,
     request: Request,
     payload: Any,
     farms_count: int | None = None,
@@ -46,17 +46,26 @@ def send_extension_visit_notice(
     if not telegram_admin_configured():
         return False
 
-    full_name = " ".join(part for part in (user.first_name, user.last_name) if part).strip()
-    created_at = user.created_at.isoformat(sep=" ", timespec="seconds") if user.created_at else ""
     detected_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
+    event_type = getattr(payload, "event_type", "popup_open")
+    title = "🔐 Farm AI — попытка входа" if event_type == "login_attempt" else "👁 Farm AI — открыл расширение"
+
+    full_name = ""
+    created_at = ""
+    email = getattr(payload, "email", "") or ""
+    if user:
+        full_name = " ".join(part for part in (user.first_name, user.last_name) if part).strip()
+        created_at = user.created_at.isoformat(sep=" ", timespec="seconds") if user.created_at else ""
+        email = user.email
+
     lines = [
-        "<b>Farm AI extension login</b>",
-        _line("User ID", user.id),
-        _line("Email", user.email),
+        f"<b>{title}</b>",
+        _line("User ID", user.id if user else ""),
+        _line("Email", email),
         _line("Name", full_name),
-        _line("Phone", user.phone),
-        _line("Niche", user.niche),
+        _line("Phone", user.phone if user else ""),
+        _line("Niche", user.niche if user else ""),
         _line("User created", created_at),
         _line("Farms available", farms_count),
         _line("IP", _client_ip(request)),
@@ -66,7 +75,7 @@ def send_extension_visit_notice(
         _line("Language", getattr(payload, "language", "")),
         _line("Timezone", getattr(payload, "timezone", "")),
         _line("Extension", getattr(payload, "extension_version", "")),
-        _line("Detected UTC", detected_at)
+        _line("Detected UTC", detected_at),
     ]
     text = "\n".join(lines)
 
