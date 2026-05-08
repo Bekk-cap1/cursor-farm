@@ -58,6 +58,9 @@
         apiOrigin: getApiOrigin(),
         pageContext: getPageContext(),
       });
+    } else {
+      // No token on farm site → user has logged out; clear extension cache
+      chrome.runtime.sendMessage({ type: 'CLEAR_TOKEN' });
     }
   }
 

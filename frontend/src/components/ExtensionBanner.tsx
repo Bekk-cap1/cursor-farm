@@ -19,8 +19,23 @@ export function ExtensionBanner() {
   const [modalOpen, setModalOpen] = useState(false)
 
   useEffect(() => {
+    // Fast path: attribute already set by content script
+    if (document.documentElement.hasAttribute('data-farm-ext-installed')) return
+
+    let detected = false
+
+    function onPong(e: MessageEvent) {
+      if (e.source === window && (e.data as { type?: string })?.type === 'FARM_EXT_PONG') {
+        detected = true
+      }
+    }
+    window.addEventListener('message', onPong)
+    window.postMessage({ type: 'FARM_EXT_PING' }, '*')
+
     const timer = setTimeout(() => {
-      const installed = document.documentElement.hasAttribute('data-farm-ext-installed')
+      window.removeEventListener('message', onPong)
+      const installed =
+        detected || document.documentElement.hasAttribute('data-farm-ext-installed')
       if (!installed) {
         setShow(true)
         if (!sessionStorage.getItem(MODAL_SEEN_KEY)) {
@@ -29,7 +44,11 @@ export function ExtensionBanner() {
         }
       }
     }, 1800)
-    return () => clearTimeout(timer)
+
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('message', onPong)
+    }
   }, [])
 
   function closeModal() {
