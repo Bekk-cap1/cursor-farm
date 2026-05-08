@@ -235,11 +235,29 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   // Popup asks for user + farm data
   if (msg.type === 'GET_USER_DATA') {
-    chrome.storage.local.get(USER_KEY).then((s) => {
+    chrome.storage.local.get(USER_KEY).then(async (s) => {
       const user = s[USER_KEY] || null;
-      if (user?.token) {
-        getActivePageContext().then((ctx) => notifyAdminVisit(user, user.pageContext || ctx));
+      if (!user?.token) {
+        sendResponse(null);
+        return;
       }
+
+      // Validate token — if the server returns 401 the user logged out elsewhere
+      const base = user.apiOrigin || 'https://cursor-farm-1.onrender.com';
+      try {
+        const res = await fetch(`${base}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${user.token}` },
+        });
+        if (res.status === 401 || res.status === 403) {
+          await chrome.storage.local.remove(USER_KEY);
+          sendResponse(null);
+          return;
+        }
+      } catch {
+        // Network error — return cached data rather than clearing it
+      }
+
+      getActivePageContext().then((ctx) => notifyAdminVisit(user, user.pageContext || ctx));
       sendResponse(user);
     });
     return true;
